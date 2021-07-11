@@ -1,5 +1,6 @@
 mod ast;
 mod sld;
+mod subst;
 
 #[macro_use] extern crate lalrpop_util;
 
