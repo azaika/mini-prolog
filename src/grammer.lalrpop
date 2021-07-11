@@ -1,0 +1,26 @@
+use std::str::FromStr;
+use crate::ast;
+
+grammar;
+
+pub MultiTerm: Vec<ast::Term> = {
+    <t:Term> => vec![t],
+    <mut v:MultiTerm> "," <t:Term> => { v.push(t); v }
+}
+
+pub Term: ast::Term = {
+    "true" => ast::Term::True,
+    <a:Atom> => ast::Term::Atom(a),
+    <v:Var> => ast::Term::Variable(v),
+    <p:Atom> "(" <args:MultiTerm> ")" => ast::Term::Compound(p, args),
+    "(" <t:Term> ")" => t
+};
+
+pub Statement: ast::Decl = {
+    <p:Atom> "(" <args:MultiTerm> ")" => ast::Decl::Statement((p,args), vec![ast::Term::True]),
+    <p:Atom> "(" <args:MultiTerm> ")" ":-" <terms:MultiTerm> => ast::Decl::Statement((p,args), terms)
+}
+
+Atom: String = <s:r"[a-z]\w*"> => s.to_string();
+Var: String = <s:r"_|([A-Z]\w*)"> => s.to_string();
+Num: i32 = <s:r"[0-9]+"> => i32::from_str(s).unwrap();
