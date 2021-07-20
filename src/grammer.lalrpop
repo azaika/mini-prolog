@@ -1,24 +1,32 @@
 use std::str::FromStr;
+use std::collections::VecDeque;
 use crate::ast;
+use crate::ast::Clause;
 
 grammar;
 
-pub MultiTerm: Vec<ast::Term> = {
-    <t:Term> => vec![t],
-    <mut v:MultiTerm> "," <t:Term> => { v.push(t); v }
+MultiTerm: Vec<Box<ast::Term>> = {
+    <t:Term> => vec![Box::new(t)],
+    <mut v:MultiTerm> "," <t:Term> => { v.push(Box::new(t)); v }
+}
+
+SingleClause: Clause = <p:Atom> "(" <args:MultiTerm> ")" => Clause{ prop_name : p, args : args };
+
+pub MultiClauses: VecDeque<ast::Clause> = {
+    <c:SingleClause> => VecDeque::from(vec![c]),
+    <mut v:MultiClauses> "," <c:SingleClause> => { v.push_back(c); v }
 }
 
 pub Term: ast::Term = {
-    "true" => ast::Term::True,
     <a:Atom> => ast::Term::Atom(a),
     <v:Var> => ast::Term::Variable(v),
-    <p:Atom> "(" <args:MultiTerm> ")" => ast::Term::Compound(p, args),
+    <c:SingleClause> => ast::Term::Compound(c),
     "(" <t:Term> ")" => t
 };
 
-pub Statement: ast::Decl = {
-    <p:Atom> "(" <args:MultiTerm> ")" => ast::Decl::Statement((p,args), vec![ast::Term::True]),
-    <p:Atom> "(" <args:MultiTerm> ")" ":-" <terms:MultiTerm> => ast::Decl::Statement((p,args), terms)
+pub Rule: ast::Rule = {
+    <c:SingleClause> => ast::Rule{ conclusion : c, conds : VecDeque::new() },
+    <c:SingleClause> ":-" <conds:MultiClauses> => ast::Rule{ conclusion : c, conds : conds }
 }
 
 Atom: String = <s:r"[a-z]\w*"> => s.to_string();
