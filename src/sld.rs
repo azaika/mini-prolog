@@ -66,7 +66,14 @@ where F : FnMut(Subst) -> bool {
 pub fn inquire<F>(callback : &mut F, records : &Records, goals : VecDeque<ast::Clause>)
 where F : FnMut(Instance) -> bool {
     let mut callback_internal = |subst : Subst| -> bool {
-        let mut vec : Vec<_> = subst.0.iter().map(|(v, t)| (v.to_owned(), t.to_string())).collect();
+        let mut vec : Vec<_> = subst.0.iter().filter_map(|(v, t)| {
+            if !v.chars().nth(0).unwrap().is_digit(10) {
+                Some((v.to_owned(), subst.apply_term(t.clone()).to_string()))
+            }
+            else {
+                None
+            }
+        }).collect();
         vec.sort();
 
         callback(Instance(vec))

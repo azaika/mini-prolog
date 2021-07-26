@@ -24,7 +24,7 @@ impl Subst {
                     Term::Variable(v)
                 }
             },
-            Term::Compound(mut c) => Term::Compound(self.apply_clause(c)),
+            Term::Compound(c) => Term::Compound(self.apply_clause(c)),
             _ => t
         }
     }

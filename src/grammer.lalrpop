@@ -2,6 +2,7 @@ use std::str::FromStr;
 use std::collections::VecDeque;
 use crate::ast;
 use crate::ast::Clause;
+use crate::input;
 
 grammar;
 
@@ -22,13 +23,17 @@ pub Term: ast::Term = {
     <v:Var> => ast::Term::Variable(v),
     <c:SingleClause> => ast::Term::Compound(c),
     "(" <t:Term> ")" => t
-};
+}
 
 pub Rule: ast::Rule = {
-    <c:SingleClause> => ast::Rule{ conclusion : c, conds : VecDeque::new() },
-    <c:SingleClause> ":-" <conds:MultiClauses> => ast::Rule{ conclusion : c, conds : conds }
+    <c:SingleClause> "." => ast::Rule{ conclusion : c, conds : VecDeque::new() },
+    <c:SingleClause> ":-" <conds:MultiClauses> "." => ast::Rule{ conclusion : c, conds : conds }
 }
 
 Atom: String = <s:r"[a-z]\w*"> => s.to_string();
-Var: String = <s:r"_|([A-Z]\w*)"> => s.to_string();
-Num: i32 = <s:r"[0-9]+"> => i32::from_str(s).unwrap();
+Var: String = <s:r"[A-Z]\w*"> => s.to_string();
+
+pub Input: input::Input = {
+    <s:r"\[[^\[\]]+\]\."> => input::Input::Load(s[1..(s.len()-2)].to_string()),
+    <c:MultiClauses> "." => input::Input::Inquire(c)
+}
