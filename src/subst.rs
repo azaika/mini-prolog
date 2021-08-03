@@ -13,6 +13,21 @@ macro_rules! hashmap {
 }
 
 impl Subst {
+    fn check_rec_var(&self, v : &str, t : &Term) -> bool {
+        let s = &self.0;
+
+        use Term::*;
+        match t {
+            Atom(_) => false,
+            Variable(w) => if v == w { true } else { s.get(w).map_or(false, |t2| self.check_rec_var(v, t2)) },
+            Compound(c) => c.args.iter().any(|t2| self.check_rec_var(v, t2))
+        }
+    }
+
+    fn check_rec(&self) -> bool {
+        self.0.iter().any(|(v, t)| self.check_rec_var(v, t))
+    }
+
     pub fn apply_term(&self, t : Term) -> Term {
         let s = &self.0;
         match t {
@@ -95,6 +110,11 @@ impl Subst {
             }
         }
 
-        Some(ret)
+        if ret.check_rec() {
+            None
+        }
+        else {
+            Some(ret)
+        }
     }
 }

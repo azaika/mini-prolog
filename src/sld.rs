@@ -30,6 +30,41 @@ impl fmt::Display for Instance {
     }
 }
 
+fn bfs_sld_derivative<F>(callback : &mut F, records : &Records, goals : &mut VecDeque<ast::Clause>)
+where F : FnMut(Subst) -> bool {
+    let mut que : VecDeque<(VecDeque<ast::Clause>, Subst, usize)> = VecDeque::new();
+    que.push_front((goals.clone(), Subst(HashMap::new()), 0));
+    while let Some((mut goals, subst, count)) = que.pop_back() {
+        if let Some(goal) = goals.pop_front() {
+            for rule in records.get(&goal.prop_name).unwrap_or(&Vec::new()) {
+                let (rule, new_count) = rule.clone().renew(count);
+    
+                let sigma = Subst::unify(&goal, &rule.conclusion);
+                if sigma.is_none() {
+                    continue;
+                }
+                let sigma = sigma.unwrap();
+
+                let mut new_goals = goals.clone();
+                for t in rule.conds.iter().rev() {
+                    new_goals.push_front(t.clone());
+                };
+    
+                new_goals = new_goals.drain(..).map(|c| { sigma.apply_clause(c) }).collect();
+    
+                let new_subst = subst.clone().compose(sigma);
+
+                que.push_front((new_goals, new_subst, new_count));
+            }
+        }
+        else {
+            if !callback(subst) {
+                break;
+            }
+        }
+    }
+}
+
 fn sld_derivative<F>(callback : &mut F, records : &Records, goals : &mut VecDeque<ast::Clause>, subst : Subst, count : usize) -> bool
 where F : FnMut(Subst) -> bool {
     if let Some(goal) = goals.pop_front() {
@@ -63,7 +98,7 @@ where F : FnMut(Subst) -> bool {
     }
 }
 
-pub fn inquire<F>(callback : &mut F, records : &Records, goals : VecDeque<ast::Clause>)
+pub fn inquire<F>(callback : &mut F, records : &Records, goals : VecDeque<ast::Clause>, bfs : bool)
 where F : FnMut(Instance) -> bool {
     let mut callback_internal = |subst : Subst| -> bool {
         let mut vec : Vec<_> = subst.0.iter().filter_map(|(v, t)| {
@@ -79,5 +114,10 @@ where F : FnMut(Instance) -> bool {
         callback(Instance(vec))
     };
 
-    sld_derivative(&mut callback_internal, records, &mut goals.clone(), Subst(HashMap::new()), 0);
+    if bfs {
+        bfs_sld_derivative(&mut callback_internal, records, &mut goals.clone());
+    }
+    else {
+        sld_derivative(&mut callback_internal, records, &mut goals.clone(), Subst(HashMap::new()), 0);
+    }
 }
